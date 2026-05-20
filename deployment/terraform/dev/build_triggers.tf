@@ -47,6 +47,7 @@ resource "google_cloudbuild_trigger" "pr_checks" {
     "agent04_media_check_agent/**",
     "agent05_youtube_highlights_agent/**",
     "magic_clip_pipeline/**",
+    "linkedin_mcp_server/**",
     "tests/**",
     "pyproject.toml",
     "uv.lock",
@@ -81,6 +82,7 @@ resource "google_cloudbuild_trigger" "deploy" {
     "agent04_media_check_agent/**",
     "agent05_youtube_highlights_agent/**",
     "magic_clip_pipeline/**",
+    "linkedin_mcp_server/**",
     "pyproject.toml",
     "uv.lock",
   ]
