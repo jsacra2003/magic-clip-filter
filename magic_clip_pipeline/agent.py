@@ -217,25 +217,51 @@ Report the verdict clearly with ✅ APPROVED or ⚠️ FLAGGED and explain why."
 )
 
 
-# --- Stage 7: Final report ---
+# --- Stage 7: Final report + social media export ---
 
-final_report_agent = LlmAgent(
-    name="FinalReportAgent",
+social_export_agent = LlmAgent(
+    name="SocialExportAgent",
     model=MODEL_AGENT,
-    description="Compiles the final Magic Clip Report.",
-    instruction="""Compile a clean, structured **Magic Clip Report** combining all pipeline outputs.
+    description="Compiles the Magic Clip Report and generates ready-to-post LinkedIn and Instagram content.",
+    instruction="""You are compiling the final output of the Magic Clip pipeline. Using the data below, produce two things: the full report AND social media posts.
 
 Trending topic: {top_trend}
 Video highlight: {video_highlight}
 PG-16 verdict: {pg16_verdict}
 
-Format the report with these sections:
-## 🔥 Trending Topic
-## 🎬 Recommended Clip
-## ✅ PG-16 Content Check
-## 📋 Summary
+---
 
-Make it concise and ready to share.""",
+## 🔥 Trending Topic
+State the trending topic in one sentence and why it matters right now.
+
+## 🎬 Recommended Clip
+List the video title, timecode, and the direct timestamped link. Include the one-sentence explanation of what happens at that moment.
+
+## ✅ PG-16 Content Check
+State the verdict clearly (APPROVED or FLAGGED) and the reason in one line.
+
+## 📋 Summary
+2-3 sentences summarising the full pipeline output.
+
+---
+
+## 📤 LinkedIn Post
+Write a professional LinkedIn post (150–250 words) about this trending topic and clip.
+- Hook with an insight or surprising fact from the video.
+- Briefly explain why this trend matters for the industry.
+- End with a thought-provoking question to drive comments.
+- Include the timestamped clip link naturally in the text.
+- Add 3–5 relevant hashtags at the bottom.
+
+---
+
+## 📸 Instagram Caption
+Write an Instagram caption (80–120 words) for this clip.
+- Start with an attention-grabbing opening line (no hashtags yet).
+- Keep it conversational and energetic — Instagram audience skews younger.
+- End with a call to action (e.g. "Link in bio", "Save this", "Tag someone who needs to see this").
+- Add a line break then 10–15 relevant hashtags (mix of broad and niche).
+""",
 )
 
 
@@ -245,7 +271,8 @@ root_agent = SequentialAgent(
     name="MagicClipFilterPipeline",
     description=(
         "End-to-end pipeline: detects what's trending (via Google News RSS or BigQuery), "
-        "finds the best YouTube clip for that trend, and verifies PG-16 appropriateness."
+        "finds the best YouTube clip for that trend, verifies PG-16 appropriateness, "
+        "and generates ready-to-post LinkedIn and Instagram content."
     ),
     sub_agents=[
         trend_finder_agent,             # 1. Find trending topics (RSS for categories, BQ for global)
@@ -254,6 +281,6 @@ root_agent = SequentialAgent(
         video_ranker_agent,             # 4. Select best video
         video_highlight_agent,          # 5. Find highlight moment (multimodal)
         pg16_check_agent,               # 6. Verify PG-16 appropriateness
-        final_report_agent,             # 7. Compile final report
+        social_export_agent,            # 7. Compile report + generate social posts
     ],
 )

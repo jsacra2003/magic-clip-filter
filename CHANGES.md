@@ -138,6 +138,25 @@ All agents share a single session state dict. The `output_key` on each `LlmAgent
 
 ---
 
+---
+
+## `magic_clip_pipeline` — Social Media Export *(new)*
+
+### What was added
+
+Replaced `FinalReportAgent` with `SocialExportAgent`. It produces everything the old report did, plus two additional sections:
+
+| Section | Platform | Length | Style |
+|---|---|---|---|
+| `📤 LinkedIn Post` | LinkedIn | 150–250 words | Professional — insight hook, industry angle, closing question, 3–5 hashtags |
+| `📸 Instagram Caption` | Instagram | 80–120 words | Conversational — grabby opener, CTA ("Save this", "Tag someone"), 10–15 hashtags |
+
+Both posts include the timestamped YouTube clip link. The LinkedIn post weaves it in naturally; the Instagram caption directs to it via "Link in bio" CTA.
+
+The pipeline output is now copy-paste-ready for social publishing.
+
+---
+
 ## Running the Pipeline
 
 ```bash
