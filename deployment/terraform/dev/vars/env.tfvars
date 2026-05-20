@@ -1,6 +1,0 @@
-project_name     = "magic-clip-filter"
-dev_project_id   = "ge-bootcamp26lis-902"
-region           = "europe-west1"
-repository_owner = "jsacra2003"
-repository_name  = "magic-clip-filter"
-github_pat_secret_id = "github-pat"
