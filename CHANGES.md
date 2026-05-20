@@ -157,6 +157,71 @@ The pipeline output is now copy-paste-ready for social publishing.
 
 ---
 
+## `linkedin_mcp_server` — LinkedIn MCP Server + Publisher Agent *(new)*
+
+### What it is
+A Model Context Protocol (MCP) server that exposes LinkedIn posting as tools, plus a standalone ADK agent that uses those tools with explicit user confirmation before posting.
+
+### Architecture
+
+```
+[Pipeline output]
+       │ user copies LinkedIn post text
+       ▼
+LinkedInPublisherAgent  (select from ADK web dropdown)
+       │
+       │ MCPToolset (StdioServerParameters)
+       │ starts subprocess ──► linkedin_mcp_server/server.py (FastMCP)
+       │                              │
+       │                    ┌─────────┴──────────┐
+       │                    ▼                    ▼
+       │           post_to_linkedin      get_linkedin_profile
+       │           (LinkedIn REST API)   (LinkedIn /v2/userinfo)
+       ▼
+   ✅ Posted — Post ID returned
+```
+
+### Files created
+
+| File | Purpose |
+|---|---|
+| `linkedin_mcp_server/server.py` | FastMCP server — exposes `post_to_linkedin` and `get_linkedin_profile` tools via stdio |
+| `linkedin_mcp_server/auth.py` | One-time OAuth 2.0 Authorization Code flow — opens browser, exchanges code, saves token to `.env` |
+| `linkedin_mcp_server/agent.py` | Standalone ADK `LlmAgent` (`root_agent`) — connects to the MCP server via `MCPToolset(StdioServerParameters(...))` |
+
+### Tools exposed by the MCP server
+
+| Tool | API endpoint | What it does |
+|---|---|---|
+| `post_to_linkedin(text)` | `POST /rest/posts` | Publishes text to the authenticated user's LinkedIn feed |
+| `get_linkedin_profile()` | `GET /v2/userinfo` | Returns name, email, and LinkedIn member ID |
+
+### User flow
+
+The pipeline (`MagicClipFilterPipeline`) generates the LinkedIn post text but does **not** post automatically. To publish:
+
+1. Copy the `📤 LinkedIn Post` section from the pipeline output.
+2. In ADK web, select **LinkedInPublisherAgent** from the dropdown.
+3. Paste the text. The agent shows a 200-character preview and asks for confirmation.
+4. Reply "yes" → agent calls `post_to_linkedin` and reports the post ID.
+
+### Setup (one-time)
+
+```bash
+# 1. Create a LinkedIn Developer App and add these OAuth scopes:
+#    openid  profile  email  w_member_social
+#    Redirect URI: http://localhost:8080/callback
+
+# 2. Add to .env:
+#    LINKEDIN_CLIENT_ID=...
+#    LINKEDIN_CLIENT_SECRET=...
+
+# 3. Run the auth flow (opens browser, saves token to .env automatically):
+make linkedin-auth
+```
+
+---
+
 ## Running the Pipeline
 
 ```bash

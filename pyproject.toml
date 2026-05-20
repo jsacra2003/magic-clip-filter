@@ -62,7 +62,7 @@ known-first-party = ["google_trends_agent", "app"]
 
 [tool.hatch.build.targets.wheel]
 # Maps the package source. Update "app" to your specific folder name if different.
-packages = ["google_trends_agent", "agent04_media_check_agent", "agent05_youtube_highlights_agent", "magic_clip_pipeline", "app"]
+packages = ["google_trends_agent", "agent04_media_check_agent", "agent05_youtube_highlights_agent", "magic_clip_pipeline", "linkedin_mcp_server", "app"]
 
 [build-system]
 requires = ["hatchling"]

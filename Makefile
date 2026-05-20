@@ -98,6 +98,21 @@ lint:
 	uv run ty check .
 
 # ==============================================================================
+# LinkedIn Authentication
+# ==============================================================================
+
+# Run the OAuth 2.0 flow to obtain a LinkedIn access token.
+# Requires LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET in .env.
+# Opens the browser, captures the callback, and saves the token to .env.
+linkedin-auth:
+	@echo "==============================================================================="
+	@echo "| LinkedIn OAuth 2.0 Authentication                                           |"
+	@echo "| Make sure LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET are set in .env     |"
+	@echo "| Redirect URI must be: http://localhost:8080/callback                         |"
+	@echo "==============================================================================="
+	uv run python -m linkedin_mcp_server.auth
+
+# ==============================================================================
 # Gemini Enterprise Integration
 # ==============================================================================
 
