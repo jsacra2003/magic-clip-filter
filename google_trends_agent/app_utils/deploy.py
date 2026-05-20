@@ -170,8 +170,8 @@ def setup_agent_identity(client: Any, project: str, display_name: str) -> Any:
 )
 @click.option(
     "--location",
-    default="eu-west1",
-    help="GCP region (defaults to eu-west1)",
+    default=lambda: os.environ.get("GOOGLE_CLOUD_LOCATION", "europe-west1"),
+    help="GCP region (defaults to GOOGLE_CLOUD_LOCATION env var, then europe-west1)",
 )
 @click.option(
     "--display-name",
