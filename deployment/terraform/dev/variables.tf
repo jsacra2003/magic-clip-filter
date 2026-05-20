@@ -1,17 +1,3 @@
-# Copyright 2026 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 variable "project_name" {
   type        = string
   description = "Project name used as a base for resource naming"
@@ -20,36 +6,52 @@ variable "project_name" {
 
 variable "dev_project_id" {
   type        = string
-  description = "**Dev** Google Cloud Project ID for resource deployment."
+  description = "Google Cloud Project ID for resource deployment."
 }
 
 variable "region" {
   type        = string
   description = "Google Cloud region for resource deployment."
-  default     = "eu-west1"
+  default     = "europe-west1"
+}
+
+variable "repository_owner" {
+  type        = string
+  description = "GitHub username or organisation that owns the repository."
+}
+
+variable "repository_name" {
+  type        = string
+  description = "GitHub repository name to connect to Cloud Build."
+}
+
+variable "github_pat_secret_id" {
+  type        = string
+  description = "Secret Manager secret ID that holds the GitHub Personal Access Token."
+  default     = "github-pat"
 }
 
 variable "telemetry_logs_filter" {
   type        = string
-  description = "Log Sink filter for capturing telemetry data. Captures logs with the `traceloop.association.properties.log_type` attribute set to `tracing`."
+  description = "Log Sink filter for agent telemetry logs."
   default     = "labels.service_name=\"magic-clip-filter\" labels.type=\"agent_telemetry\""
 }
 
 variable "feedback_logs_filter" {
   type        = string
-  description = "Log Sink filter for capturing feedback data. Captures logs where the `log_type` field is `feedback`."
+  description = "Log Sink filter for feedback logs."
   default     = "jsonPayload.log_type=\"feedback\" jsonPayload.service_name=\"magic-clip-filter\""
 }
 
 variable "app_sa_roles" {
-  description = "List of roles to assign to the application service account"
+  description = "Roles assigned to the agent runtime service account."
   type        = list(string)
   default = [
-
     "roles/aiplatform.user",
     "roles/logging.logWriter",
     "roles/cloudtrace.agent",
     "roles/storage.admin",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/bigquery.user",
   ]
 }

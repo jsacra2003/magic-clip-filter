@@ -1,20 +1,5 @@
-# Copyright 2026 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Read base64-encoded dummy source tarball from GCS for initial Agent Engine creation
-# CI/CD pipelines will update with actual source code after creation
-# Note: The file is already base64-encoded to avoid binary corruption when reading via Terraform
+# Read base64-encoded dummy source tarball for initial Agent Engine creation.
+# CI/CD will update source code after the first Terraform apply.
 data "google_storage_bucket_object_content" "dummy_source_b64" {
   name   = "dummy/source-b64.txt"
   bucket = "agent-starter-pack"
@@ -22,7 +7,7 @@ data "google_storage_bucket_object_content" "dummy_source_b64" {
 
 resource "google_vertex_ai_reasoning_engine" "app" {
   display_name = var.project_name
-  description  = "Agent deployed via Terraform"
+  description  = "Magic Clip Filter — Trends → YouTube → PG-16 pipeline"
   region       = var.region
   project      = var.dev_project_id
 
@@ -62,22 +47,18 @@ resource "google_vertex_ai_reasoning_engine" "app" {
       }
 
       python_spec {
-        entrypoint_module  = "app.agent_engine_app"
-        entrypoint_object  = "agent_engine"
-        requirements_file  = "app/app_utils/.requirements.txt"
-        version            = "3.12"
+        entrypoint_module = "google_trends_agent.agent_engine_app"
+        entrypoint_object = "agent_engine"
+        requirements_file = "google_trends_agent/app_utils/.requirements.txt"
+        version           = "3.12"
       }
     }
   }
 
-  # This lifecycle block prevents Terraform from overwriting the source code when it's
-  # updated by Agent Engine deployments outside of Terraform (e.g., via CI/CD pipelines)
+  # Ignore source_code_spec changes — CI/CD updates these after first apply
   lifecycle {
-    ignore_changes = [
-      spec[0].source_code_spec,
-    ]
+    ignore_changes = [spec[0].source_code_spec]
   }
 
-  # Make dependencies conditional to avoid errors.
   depends_on = [google_project_service.services]
 }
