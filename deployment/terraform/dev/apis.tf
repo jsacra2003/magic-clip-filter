@@ -13,6 +13,7 @@ locals {
     "cloudtrace.googleapis.com",
     "telemetry.googleapis.com",
     "artifactregistry.googleapis.com",
+    "firestore.googleapis.com",
   ]
 }
 

@@ -34,30 +34,35 @@ root_agent = LlmAgent(
     name="LinkedInPublisherAgent",
     model=MODEL_TOOL,
     description="Clips a YouTube video highlight and posts it to LinkedIn with a caption.",
-    instruction="""You are the LinkedIn publishing agent. You clip YouTube video highlights and post them directly to LinkedIn with the generated caption.
+    instruction="""You are the LinkedIn publishing agent. You clip YouTube video highlights and post them to LinkedIn — but only once per video (duplicates are blocked by a Firestore database).
 
 Available tools:
 - `get_linkedin_profile` — verify which account is authenticated.
-- `clip_video(youtube_url, start_seconds, duration)` — downloads a clip from YouTube as an MP4.
-- `post_video_to_linkedin(text, video_path)` — uploads the MP4 and publishes it with a caption.
-- `post_to_linkedin(text)` — text-only fallback if video clipping fails.
+- `check_if_already_posted(video_url)` — check Firestore for a previous post of this video.
+- `clip_video(youtube_url, start_seconds, duration)` — download a clip from YouTube as an MP4.
+- `post_video_to_linkedin(text, video_path, youtube_url, trend)` — upload the MP4 and publish with a caption; records the post in Firestore automatically.
+- `post_to_linkedin(text, youtube_url, trend)` — text-only fallback if video clipping fails; also records in Firestore.
 
 Workflow when the user provides a Magic Clip report:
 1. Extract from the report:
-   - The YouTube video URL (look for youtube.com/watch?v=...)
-   - The timecode in seconds (e.g. "Timecode: 00:17" → 17 seconds; "01:23" → 83 seconds)
-   - The LinkedIn post caption (the section under "## 📤 LinkedIn Post")
-2. Show the user what you're about to do:
+   - YouTube video URL (look for youtube.com/watch?v=...)
+   - Timecode in seconds (e.g. "00:17" → 17; "01:23" → 83)
+   - Trending topic (from "## 🔥 Trending Topic")
+   - LinkedIn caption (from "## 📤 LinkedIn Post")
+2. Call `check_if_already_posted(video_url)` immediately.
+   - If duplicate → tell the user and stop. Do not post.
+   - If not posted yet → continue.
+3. Show a preview to the user:
    - "📎 Video: [URL] at [timecode]"
    - "📝 Caption preview: [first 200 chars]..."
    - Ask: "Shall I clip and post this to LinkedIn? (yes / no)"
-3. After confirmation:
+4. After confirmation:
    a. Call `clip_video(youtube_url, start_seconds=<seconds>, duration=60)`
-   b. If it succeeds, call `post_video_to_linkedin(text=<caption>, video_path=<path>)`
-   c. If clip_video fails, offer to post text-only with `post_to_linkedin`
-4. Report the result (post ID on success, full error on failure).
+   b. If clip succeeds → call `post_video_to_linkedin(text, video_path, youtube_url, trend)`
+   c. If clip fails → offer text-only via `post_to_linkedin(text, youtube_url, trend)`
+5. Report the result (Post ID on success, full error on failure).
 
-If the user asks to check their profile first, call `get_linkedin_profile`.
-Never post without explicit confirmation.""",
+If the user asks to check their profile, call `get_linkedin_profile`.
+Never post without explicit user confirmation.""",
     tools=[linkedin_toolset],
 )

@@ -5,12 +5,15 @@ Run once to authenticate:
 
 Then this server is started automatically by the ADK MCPToolset.
 """
+import hashlib
 import os
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 
 import requests
 from dotenv import load_dotenv
+from google.cloud import firestore
 from mcp.server.fastmcp import FastMCP
 
 load_dotenv()
@@ -22,7 +25,11 @@ _LI_HEADERS_BASE = {
     "LinkedIn-Version": _LI_VERSION,
     "X-Restli-Protocol-Version": "2.0.0",
 }
+_FIRESTORE_COLLECTION = "linkedin_posts"
 
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 def _token() -> str:
     token = os.getenv("LINKEDIN_ACCESS_TOKEN", "").strip()
@@ -50,11 +57,57 @@ def _auth_headers(access_token: str) -> dict:
     return {**_LI_HEADERS_BASE, "Authorization": f"Bearer {access_token}"}
 
 
+_db_client: firestore.Client | None = None
+
+def _db() -> firestore.Client:
+    global _db_client
+    if _db_client is None:
+        project = os.getenv("GOOGLE_CLOUD_PROJECT")
+        _db_client = firestore.Client(project=project)
+    return _db_client
+
+
+def _doc_id(video_url: str) -> str:
+    """Stable, safe Firestore document ID derived from the YouTube URL."""
+    return hashlib.sha256(video_url.encode()).hexdigest()[:40]
+
+
+def _check_duplicate(video_url: str) -> tuple[bool, str]:
+    """Returns (is_duplicate, human-readable reason)."""
+    try:
+        doc = _db().collection(_FIRESTORE_COLLECTION).document(_doc_id(video_url)).get()
+        if doc.exists:
+            data = doc.to_dict()
+            posted_at = data.get("posted_at", "unknown date")
+            post_id = data.get("linkedin_post_id", "unknown")
+            trend = data.get("trend", "unknown trend")
+            return True, (
+                f"⚠️ Duplicate detected: this video was already posted on {posted_at} "
+                f"(trend: '{trend}', LinkedIn Post ID: {post_id})"
+            )
+    except Exception as exc:
+        # Firestore unavailable — log and allow the post rather than blocking
+        print(f"[firestore] duplicate check skipped: {exc}")
+    return False, ""
+
+
+def _record_post(video_url: str, trend: str, post_id: str, text: str) -> None:
+    try:
+        _db().collection(_FIRESTORE_COLLECTION).document(_doc_id(video_url)).set({
+            "video_url": video_url,
+            "trend": trend,
+            "linkedin_post_id": post_id,
+            "post_text_hash": hashlib.sha256(text.encode()).hexdigest(),
+            "posted_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as exc:
+        print(f"[firestore] failed to record post: {exc}")
+
+
 def _upload_video(access_token: str, author_urn: str, video_path: str) -> str:
     """Uploads a local MP4 to LinkedIn and returns the video URN."""
     file_size = os.path.getsize(video_path)
 
-    # Step 1: Initialize upload
     init_resp = requests.post(
         "https://api.linkedin.com/rest/videos?action=initializeUpload",
         headers={**_auth_headers(access_token), "Content-Type": "application/json"},
@@ -75,16 +128,13 @@ def _upload_video(access_token: str, author_urn: str, video_path: str) -> str:
     upload_token = upload_data["uploadToken"]
     instructions = upload_data["uploadInstructions"]
 
-    # Step 2: Upload each part (usually a single part for clips < 200 MB)
     uploaded_part_ids = []
     with open(video_path, "rb") as f:
         for instruction in instructions:
             first_byte = instruction["firstByte"]
             last_byte = instruction["lastByte"]
-            chunk_size = last_byte - first_byte + 1
             f.seek(first_byte)
-            chunk = f.read(chunk_size)
-
+            chunk = f.read(last_byte - first_byte + 1)
             put_resp = requests.put(
                 instruction["uploadUrl"],
                 data=chunk,
@@ -92,10 +142,8 @@ def _upload_video(access_token: str, author_urn: str, video_path: str) -> str:
                 timeout=300,
             )
             put_resp.raise_for_status()
-            etag = put_resp.headers.get("ETag", "").strip('"')
-            uploaded_part_ids.append(etag)
+            uploaded_part_ids.append(put_resp.headers.get("ETag", "").strip('"'))
 
-    # Step 3: Finalize upload
     finalize_resp = requests.post(
         "https://api.linkedin.com/rest/videos?action=finalizeUpload",
         headers={**_auth_headers(access_token), "Content-Type": "application/json"},
@@ -115,6 +163,23 @@ def _upload_video(access_token: str, author_urn: str, video_path: str) -> str:
 # ---------------------------------------------------------------------------
 # MCP Tools
 # ---------------------------------------------------------------------------
+
+@mcp.tool()
+def check_if_already_posted(video_url: str) -> str:
+    """Checks whether this YouTube video has already been posted to LinkedIn.
+
+    Args:
+        video_url: The YouTube video URL to check.
+
+    Returns:
+        A message stating whether the video was already posted (with date and
+        LinkedIn Post ID) or has never been posted.
+    """
+    is_dup, reason = _check_duplicate(video_url)
+    if is_dup:
+        return reason
+    return "✅ Not posted yet — safe to publish."
+
 
 @mcp.tool()
 def clip_video(youtube_url: str, start_seconds: int, duration: int = 60) -> str:
@@ -160,22 +225,28 @@ def clip_video(youtube_url: str, start_seconds: int, duration: int = 60) -> str:
         return f"Download finished but clip not found at {output_path}"
 
     size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    return (
-        f"{output_path}\n"
-        f"Clip: {clip_start}s – {clip_end}s  ({size_mb:.1f} MB)"
-    )
+    return f"{output_path}\nClip: {clip_start}s–{clip_end}s  ({size_mb:.1f} MB)"
 
 
 @mcp.tool()
-def post_to_linkedin(text: str) -> str:
+def post_to_linkedin(text: str, youtube_url: str = "", trend: str = "") -> str:
     """Publishes a text-only post to LinkedIn as the authenticated user.
 
+    Checks Firestore for duplicates before posting and records the post after.
+
     Args:
-        text: The ready-to-post content. Will be published as-is.
+        text: The ready-to-post content.
+        youtube_url: The source YouTube URL (used for duplicate detection).
+        trend: The trending topic this post is about (stored for reference).
 
     Returns:
-        Success message with post ID, or an error description.
+        Success message with post ID, or an error / duplicate notice.
     """
+    if youtube_url:
+        is_dup, reason = _check_duplicate(youtube_url)
+        if is_dup:
+            return reason
+
     access_token = _token()
     author_urn = _person_urn(access_token)
 
@@ -200,23 +271,36 @@ def post_to_linkedin(text: str) -> str:
     )
 
     if resp.status_code == 201:
-        return f"✅ Posted to LinkedIn! Post ID: {resp.headers.get('x-restli-id', 'unknown')}"
+        post_id = resp.headers.get("x-restli-id", "unknown")
+        if youtube_url:
+            _record_post(youtube_url, trend, post_id, text)
+        return f"✅ Posted to LinkedIn! Post ID: {post_id}"
     return f"❌ LinkedIn post failed ({resp.status_code}): {resp.text}"
 
 
 @mcp.tool()
-def post_video_to_linkedin(text: str, video_path: str) -> str:
+def post_video_to_linkedin(
+    text: str, video_path: str, youtube_url: str = "", trend: str = ""
+) -> str:
     """Uploads a local video clip and publishes it to LinkedIn with a caption.
 
-    Call clip_video first to obtain the video_path, then pass it here.
+    Checks Firestore for duplicates before posting and records the post after.
+    Call clip_video first to obtain video_path.
 
     Args:
         text: Post caption text.
         video_path: Absolute path to a local MP4 file (returned by clip_video).
+        youtube_url: The source YouTube URL (used for duplicate detection).
+        trend: The trending topic this post is about (stored for reference).
 
     Returns:
-        Success message with post ID, or an error description.
+        Success message with post ID and video URN, or an error / duplicate notice.
     """
+    if youtube_url:
+        is_dup, reason = _check_duplicate(youtube_url)
+        if is_dup:
+            return reason
+
     if not os.path.exists(video_path):
         return f"❌ Video file not found: {video_path}"
 
@@ -237,9 +321,7 @@ def post_video_to_linkedin(text: str, video_path: str) -> str:
             "targetEntities": [],
             "thirdPartyDistributionChannels": [],
         },
-        "content": {
-            "media": {"id": video_urn}
-        },
+        "content": {"media": {"id": video_urn}},
         "lifecycleState": "PUBLISHED",
         "isReshareDisabledByAuthor": False,
     }
@@ -252,9 +334,12 @@ def post_video_to_linkedin(text: str, video_path: str) -> str:
     )
 
     if resp.status_code == 201:
+        post_id = resp.headers.get("x-restli-id", "unknown")
+        if youtube_url:
+            _record_post(youtube_url, trend, post_id, text)
         return (
             f"✅ Video posted to LinkedIn!\n"
-            f"Post ID: {resp.headers.get('x-restli-id', 'unknown')}\n"
+            f"Post ID: {post_id}\n"
             f"Video URN: {video_urn}"
         )
     return f"❌ LinkedIn video post failed ({resp.status_code}): {resp.text}"
