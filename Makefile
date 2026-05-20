@@ -19,9 +19,9 @@ playground:
 	@echo "|                                                                             |"
 	@echo "| 💡 Try asking: What's trending in AI Engineering today?                     |"
 	@echo "|                                                                             |"
-	@echo "| 🔍 IMPORTANT: Select the 'google_trends_agent' folder to interact with your agent.          |"
+	@echo "| 🔍 IMPORTANT: Select 'magic_clip_pipeline' to run the full pipeline.         |"
 	@echo "==============================================================================="
-	uv run adk web . --port 8501 --reload_agents
+	uv run adk web . --port 8501 --reload_agents --allow_origins "*"
 
 # ==============================================================================
 # Backend Deployment Targets
