@@ -1,6 +1,10 @@
 FROM python:3.12-slim
 WORKDIR /app
 
+# ffmpeg is required by yt-dlp for merging video+audio streams
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml uv.lock ./
 # Stub packages so uv can resolve the workspace without the full source
 RUN mkdir -p google_trends_agent agent04_media_check_agent \

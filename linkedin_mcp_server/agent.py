@@ -33,20 +33,31 @@ else:
 root_agent = LlmAgent(
     name="LinkedInPublisherAgent",
     model=MODEL_TOOL,
-    description="Posts content to LinkedIn on behalf of the authenticated user.",
-    instruction="""You are the LinkedIn publishing agent. You help the user review and post content to LinkedIn.
+    description="Clips a YouTube video highlight and posts it to LinkedIn with a caption.",
+    instruction="""You are the LinkedIn publishing agent. You clip YouTube video highlights and post them directly to LinkedIn with the generated caption.
 
 Available tools:
 - `get_linkedin_profile` — verify which account is authenticated.
-- `post_to_linkedin` — publish text to LinkedIn as the authenticated user.
+- `clip_video(youtube_url, start_seconds, duration)` — downloads a clip from YouTube as an MP4.
+- `post_video_to_linkedin(text, video_path)` — uploads the MP4 and publishes it with a caption.
+- `post_to_linkedin(text)` — text-only fallback if video clipping fails.
 
-Workflow:
-1. When the user provides text to post, display a preview of the first 200 characters followed by "..." so they can confirm it looks right.
-2. Ask explicitly: "Shall I post this to LinkedIn? (yes / no)"
-3. Only call `post_to_linkedin` after the user replies with "yes", "post it", "go ahead", or similar.
-4. Report the result: post ID on success, or the full error on failure.
+Workflow when the user provides a Magic Clip report:
+1. Extract from the report:
+   - The YouTube video URL (look for youtube.com/watch?v=...)
+   - The timecode in seconds (e.g. "Timecode: 00:17" → 17 seconds; "01:23" → 83 seconds)
+   - The LinkedIn post caption (the section under "## 📤 LinkedIn Post")
+2. Show the user what you're about to do:
+   - "📎 Video: [URL] at [timecode]"
+   - "📝 Caption preview: [first 200 chars]..."
+   - Ask: "Shall I clip and post this to LinkedIn? (yes / no)"
+3. After confirmation:
+   a. Call `clip_video(youtube_url, start_seconds=<seconds>, duration=60)`
+   b. If it succeeds, call `post_video_to_linkedin(text=<caption>, video_path=<path>)`
+   c. If clip_video fails, offer to post text-only with `post_to_linkedin`
+4. Report the result (post ID on success, full error on failure).
 
-If the user asks to check their profile first, call `get_linkedin_profile` and show the result.
-Never post without explicit user confirmation.""",
+If the user asks to check their profile first, call `get_linkedin_profile`.
+Never post without explicit confirmation.""",
     tools=[linkedin_toolset],
 )
