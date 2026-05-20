@@ -1,7 +1,10 @@
 import json
 import os
-from typing import Any, Optional
+import urllib.parse
+import xml.etree.ElementTree as ET
+from typing import Optional
 
+import requests
 from pydantic import BaseModel
 
 import google.auth
@@ -14,7 +17,7 @@ from google.genai import types
 
 from agent04_media_check_agent.agent import check_pg16_content
 from agent05_youtube_highlights_agent.tools import youtube_search
-from google_trends_agent.agent import root_agent as google_trends_root
+from google_trends_agent.tools import execute_bigquery_sql
 
 load_dotenv()
 
@@ -27,6 +30,54 @@ MODEL_AGENT = os.getenv("MODEL_AGENT", "gemini-2.5-pro")
 MODEL_TOOL = os.getenv("MODEL_TOOL", "gemini-2.5-flash")
 
 
+# --- Stage 1: Find trending topics ---
+
+def get_trending_news(topic: str) -> str:
+    """Fetches the top 10 trending news headlines for a given topic using Google News RSS.
+
+    Args:
+        topic: The subject or category to search for trending news (e.g. 'AI', 'NBA playoffs').
+
+    Returns:
+        A numbered list of the top trending headlines as a plain string.
+    """
+    encoded = urllib.parse.quote_plus(topic)
+    url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
+    try:
+        resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        items = root.findall(".//item")[:10]
+        headlines = []
+        for i, item in enumerate(items, 1):
+            title_el = item.find("title")
+            title = title_el.text.strip() if title_el is not None and title_el.text else "No title"
+            headlines.append(f"{i}. {title}")
+        return "\n".join(headlines) if headlines else "No results found."
+    except Exception as e:
+        return f"Error fetching news: {e}"
+
+
+trend_finder_agent = LlmAgent(
+    name="TrendFinderAgent",
+    model=MODEL_TOOL,
+    description="Finds trending topics relevant to the user's query using Google News RSS or BigQuery Google Trends.",
+    instruction="""You are a trend-discovery agent. Given the user's question, find the most relevant trending topics.
+
+Rules:
+- If the user mentions a specific category (tech, AI, sports, politics, entertainment, business, science, etc.):
+  → Use the `get_trending_news` tool with that topic as the query.
+  → Example: user says "tech news" → call get_trending_news(topic="technology AI")
+- If the user asks about global trends with no specific category (e.g. "what's trending?", "top trends today"):
+  → Use the `execute_bigquery_sql` tool with this query:
+    SELECT term, rank FROM `bigquery-public-data.google_trends.top_terms` WHERE refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY) ORDER BY rank ASC LIMIT 20
+
+Return all results as-is. Do NOT summarize or pick yet — just output the raw list.""",
+    tools=[get_trending_news, execute_bigquery_sql],
+    output_key="trending_results",
+)
+
+
 # --- Stage 2: Extract the top trending term from the Trends output ---
 
 trend_extractor_agent = LlmAgent(
@@ -35,11 +86,12 @@ trend_extractor_agent = LlmAgent(
     description="Picks the most relevant trending term given the user's original request.",
     instruction="""You have two inputs:
 1. The user's original question (at the top of the conversation).
-2. The Google Trends data from the previous agent — a list of currently trending terms.
+2. The trending data from the previous agent in {trending_results} — a list of trending topics or headlines.
 
-Your job: pick the SINGLE trending term that best matches the topic or intent in the user's question.
-- If the user asked about tech, sports, politics, etc. — pick the trending term closest to that domain.
-- If no term closely matches, pick the most interesting/newsworthy one.
+Your job: pick the SINGLE trending term or headline that best matches the topic or intent in the user's question.
+- If the user asked about tech, sports, politics, etc. — pick the trending item closest to that domain.
+- Prefer specific, concrete terms (e.g. "Apple WWDC 2025 announcement") over vague ones.
+- If no item closely matches, pick the most newsworthy one.
 
 Output ONLY the chosen term as a plain string. No punctuation, no explanation, no formatting.
 Example output: OpenAI GPT-5 release""",
@@ -192,16 +244,16 @@ Make it concise and ready to share.""",
 root_agent = SequentialAgent(
     name="MagicClipFilterPipeline",
     description=(
-        "End-to-end pipeline: detects what's trending via Google Trends, "
+        "End-to-end pipeline: detects what's trending (via Google News RSS or BigQuery), "
         "finds the best YouTube clip for that trend, and verifies PG-16 appropriateness."
     ),
     sub_agents=[
-        google_trends_root,             # 1+2. Generate SQL + execute → trending topics
-        trend_extractor_agent,          # 3. Extract top trending term
-        youtube_search_for_trend_agent, # 4. Search YouTube for the trend
-        video_ranker_agent,             # 5. Select best video
-        video_highlight_agent,          # 6. Find highlight moment (multimodal)
-        pg16_check_agent,               # 7. Verify PG-16 appropriateness
-        final_report_agent,             # 8. Compile final report
+        trend_finder_agent,             # 1. Find trending topics (RSS for categories, BQ for global)
+        trend_extractor_agent,          # 2. Extract top trending term
+        youtube_search_for_trend_agent, # 3. Search YouTube for the trend
+        video_ranker_agent,             # 4. Select best video
+        video_highlight_agent,          # 5. Find highlight moment (multimodal)
+        pg16_check_agent,               # 6. Verify PG-16 appropriateness
+        final_report_agent,             # 7. Compile final report
     ],
 )

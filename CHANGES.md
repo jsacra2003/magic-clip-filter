@@ -64,49 +64,61 @@ A new `SequentialAgent` that connects all three agents into a single automated p
 ### Architecture
 
 ```
-Input: "What's trending in sports in Brazil today?"
+Input: "What's trending in tech news today?"
     │
     ▼
-[1] TrendsQueryGeneratorAgent    ← from google_trends_agent
-    Generates BigQuery SQL for the user's region/topic
+[1] TrendFinderAgent             ← new (replaces google_trends_root)
+    Category query → get_trending_news(topic) via Google News RSS
+    Global query   → execute_bigquery_sql via BigQuery Google Trends
+    output_key: trending_results
     │
     ▼
-[2] TrendsQueryExecutorAgent     ← from google_trends_agent
-    Executes SQL → returns top trending terms as markdown
-    │  output_key: generated_sql (internal)
-    ▼
-[3] TrendExtractorAgent          ← new
-    Extracts the single top trending term
+[2] TrendExtractorAgent          ← new
+    Picks the single term that best matches the user's intent
     output_key: top_trend
     │
     ▼
-[4] YouTubeSearchForTrendAgent   ← new, reuses youtube_search tool
+[3] YouTubeSearchForTrendAgent   ← new, reuses youtube_search tool
     Searches YouTube for {top_trend}
     output_key: youtube_results
     │
     ▼
-[5] VideoRankerAgent             ← new
+[4] VideoRankerAgent             ← new
     Selects best video for {top_trend} from {youtube_results}
     output_key: selected_video
     │
     ▼
-[6] VideoHighlightAgent          ← new, multimodal
+[5] VideoHighlightAgent          ← new, multimodal
     Injects video via before_model_callback
     Identifies exact highlight moment (timecode, confidence, explanation)
     output_key: video_highlight
     │
     ▼
-[7] PG16ContentCheckAgent        ← new, uses check_pg16_content tool
+[6] PG16ContentCheckAgent        ← new, uses check_pg16_content tool
     Verifies {top_trend} + {selected_video} for PG-16 suitability
     output_key: pg16_verdict
     │
     ▼
-[8] FinalReportAgent             ← new
+[7] FinalReportAgent             ← new
     Compiles final Magic Clip Report with all outputs
     │
     ▼
 Output: Markdown report with trending topic, timestamped clip link, PG-16 verdict
 ```
+
+### Architecture change: TrendFinderAgent (replaces google_trends_root)
+
+**Problem:** The original Stage 1 used `google_trends_root` (the BigQuery Google Trends pipeline).
+The BigQuery public dataset (`bigquery-public-data.google_trends.top_terms`) only contains **global top terms with no category filtering** — so asking "what's trending in tech?" would return golf tournaments or celebrity news.
+
+**Fix:** Replaced `google_trends_root` with a new `TrendFinderAgent` that has two tools:
+
+| Tool | When used | Data source |
+|---|---|---|
+| `get_trending_news(topic)` | User specifies a category (tech, sports, AI, politics…) | Google News RSS — real-time, category-aware |
+| `execute_bigquery_sql` | User asks globally ("what's trending?") | BigQuery `google_trends.top_terms` — global chart |
+
+The agent decides which tool to call based on the user's intent. Category-specific queries now return relevant results (e.g. "tech news" → AI, WWDC, GPU releases) instead of unrelated global trends.
 
 ### Files created
 - `magic_clip_pipeline/__init__.py`
