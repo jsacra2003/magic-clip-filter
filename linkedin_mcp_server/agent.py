@@ -3,7 +3,7 @@ import os
 import google.auth
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, SseServerParams, StdioServerParameters
 
 load_dotenv()
 
@@ -14,12 +14,21 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 MODEL_TOOL = os.getenv("MODEL_TOOL", "gemini-2.5-flash")
 
-linkedin_toolset = MCPToolset(
-    connection_params=StdioServerParameters(
-        command="uv",
-        args=["run", "python", "-m", "linkedin_mcp_server.server"],
+_mcp_url = os.getenv("LINKEDIN_MCP_URL", "").strip()
+
+if _mcp_url:
+    # Cloud deployment: connect to the Cloud Run MCP service over SSE
+    linkedin_toolset = MCPToolset(
+        connection_params=SseServerParams(url=f"{_mcp_url.rstrip('/')}/sse")
     )
-)
+else:
+    # Local development: spawn the MCP server as a subprocess
+    linkedin_toolset = MCPToolset(
+        connection_params=StdioServerParameters(
+            command="uv",
+            args=["run", "python", "-m", "linkedin_mcp_server.server"],
+        )
+    )
 
 root_agent = LlmAgent(
     name="LinkedInPublisherAgent",

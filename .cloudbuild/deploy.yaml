@@ -10,7 +10,7 @@ steps:
       - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
 
   - name: "python:3.12-slim"
-    id: deploy
+    id: deploy-agent-engine
     entrypoint: /bin/bash
     args:
       - "-c"
@@ -30,6 +30,45 @@ steps:
           --set-env-vars="COMMIT_SHA=${COMMIT_SHA},LOGS_BUCKET_NAME=${_LOGS_BUCKET_NAME}"
     env:
       - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: build-linkedin-mcp
+    args:
+      - build
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/magic-clip-filter/linkedin-mcp-server:${COMMIT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/magic-clip-filter/linkedin-mcp-server:latest"
+      - -f
+      - linkedin_mcp_server/Dockerfile
+      - .
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: push-linkedin-mcp
+    args:
+      - push
+      - --all-tags
+      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/magic-clip-filter/linkedin-mcp-server"
+    waitFor: ["build-linkedin-mcp"]
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: deploy-linkedin-mcp-cloud-run
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - magic-clip-filter-linkedin-mcp
+      - --image
+      - "${_REGION}-docker.pkg.dev/${_PROJECT_ID}/magic-clip-filter/linkedin-mcp-server:${COMMIT_SHA}"
+      - --region
+      - "${_REGION}"
+      - --project
+      - "${_PROJECT_ID}"
+      - --service-account
+      - "${_APP_SERVICE_ACCOUNT}"
+      - --platform
+      - managed
+    waitFor: ["push-linkedin-mcp"]
 
 substitutions:
   _PROJECT_ID: ge-bootcamp26lis-902

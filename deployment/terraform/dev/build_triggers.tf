@@ -15,6 +15,7 @@ locals {
     "roles/cloudbuild.builds.builder",
     "roles/iam.serviceAccountUser",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/run.developer",
   ]
 }
 

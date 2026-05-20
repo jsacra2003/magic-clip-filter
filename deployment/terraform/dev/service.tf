@@ -39,6 +39,11 @@ resource "google_vertex_ai_reasoning_engine" "app" {
         name  = "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"
         value = "true"
       }
+
+      env {
+        name  = "LINKEDIN_MCP_URL"
+        value = google_cloud_run_v2_service.linkedin_mcp.uri
+      }
     }
 
     source_code_spec {
