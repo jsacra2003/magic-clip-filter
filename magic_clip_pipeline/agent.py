@@ -12,10 +12,7 @@ from google.genai import types
 
 from agent04_media_check_agent.agent import check_pg16_content
 from agent05_youtube_highlights_agent.tools import youtube_search
-from google_trends_agent.agent import (
-    trends_query_executor_agent,
-    trends_query_generator_agent,
-)
+from google_trends_agent.agent import root_agent as google_trends_root
 
 load_dotenv()
 
@@ -168,8 +165,7 @@ root_agent = SequentialAgent(
         "finds the best YouTube clip for that trend, and verifies PG-16 appropriateness."
     ),
     sub_agents=[
-        trends_query_generator_agent,   # 1. Generate BigQuery SQL for trends
-        trends_query_executor_agent,    # 2. Execute SQL → trending topics
+        google_trends_root,             # 1+2. Generate SQL + execute → trending topics
         trend_extractor_agent,          # 3. Extract top trending term
         youtube_search_for_trend_agent, # 4. Search YouTube for the trend
         video_ranker_agent,             # 5. Select best video
