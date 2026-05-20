@@ -72,15 +72,35 @@ Output ONLY a JSON object with these exact fields:
 
 # --- Stage 5: Multimodal video analysis with vision callback ---
 
+def _parse_video_from_state(raw) -> Optional[dict]:
+    """Parses the selected_video state value into a dict, handling edge cases."""
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    text = str(raw).strip()
+    if not text:
+        return None
+    # Strip markdown code fences if the model wrapped the JSON
+    if text.startswith("```"):
+        text = "\n".join(
+            line for line in text.splitlines()
+            if not line.strip().startswith("```")
+        ).strip()
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
 def _inject_video_into_request(
     callback_context: CallbackContext, llm_request: LlmRequest
 ) -> Optional[LlmResponse]:
     """Injects the selected video file into the LLM request for multimodal analysis."""
     raw = callback_context.state.get("selected_video")
-    if not raw:
+    video = _parse_video_from_state(raw)
+    if not video:
         return None
-
-    video = raw if isinstance(raw, dict) else json.loads(raw)
 
     parts = [
         types.Part(text=f'Video title: {video["title"]}'),

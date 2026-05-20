@@ -66,19 +66,32 @@ def build_llm_parts(video):
     return parts
 
 
+def _parse_video(raw) -> Optional[dict]:
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    text = str(raw).strip()
+    if not text:
+        return None
+    if text.startswith("```"):
+        text = "\n".join(
+            line for line in text.splitlines()
+            if not line.strip().startswith("```")
+        ).strip()
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
 def vision_callback_builds_video_parts(
     callback_context: CallbackContext, llm_request: LlmRequest
 ) -> Optional[LlmResponse]:
     # Inject the selected video into the LLM request for multimodal analysis
-    selected_video = callback_context.state.get("selected_video")
+    selected_video = _parse_video(callback_context.state.get("selected_video"))
     if not selected_video:
         return None
-
-    if isinstance(selected_video, str):
-        try:
-            selected_video = json.loads(selected_video)
-        except (json.JSONDecodeError, ValueError):
-            return None
 
     video_parts = build_llm_parts(selected_video)
     video_content = types.Content(role="user", parts=video_parts)
