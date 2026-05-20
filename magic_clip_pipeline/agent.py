@@ -2,6 +2,8 @@ import json
 import os
 from typing import Any, Optional
 
+from pydantic import BaseModel
+
 import google.auth
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent, SequentialAgent
@@ -30,11 +32,17 @@ MODEL_TOOL = os.getenv("MODEL_TOOL", "gemini-2.5-flash")
 trend_extractor_agent = LlmAgent(
     name="TrendExtractorAgent",
     model=MODEL_TOOL,
-    description="Extracts the single top trending term from the Google Trends results.",
-    instruction="""Look at the Google Trends data produced by the previous agent.
-Identify the single top trending term — the one with rank #1 or listed first.
-Output ONLY that term as a plain string. No punctuation, no explanation, no formatting.
-Example output: Mbappé hat trick""",
+    description="Picks the most relevant trending term given the user's original request.",
+    instruction="""You have two inputs:
+1. The user's original question (at the top of the conversation).
+2. The Google Trends data from the previous agent — a list of currently trending terms.
+
+Your job: pick the SINGLE trending term that best matches the topic or intent in the user's question.
+- If the user asked about tech, sports, politics, etc. — pick the trending term closest to that domain.
+- If no term closely matches, pick the most interesting/newsworthy one.
+
+Output ONLY the chosen term as a plain string. No punctuation, no explanation, no formatting.
+Example output: OpenAI GPT-5 release""",
     output_key="top_trend",
 )
 
@@ -53,19 +61,22 @@ Return the full list with video_id, title, and URL for each result.""",
 )
 
 
+class SelectedVideo(BaseModel):
+    video_id: str
+    title: str
+    url: str
+
+
 # --- Stage 4: Select the best video ---
 
 video_ranker_agent = LlmAgent(
     name="VideoRankerAgent",
     model=MODEL_AGENT,
     description="Selects the single best YouTube video for the trending topic.",
-    instruction="""From the YouTube search results below, select the single best video that best captures the trending topic '{top_trend}'.
+    instruction="""From the YouTube search results in the conversation, select the single best video that best represents the trending topic '{top_trend}'.
 
-Search results:
-{youtube_results}
-
-Output ONLY a JSON object with these exact fields:
-{{"video_id": "<id>", "title": "<title>", "url": "<full YouTube URL>"}}""",
+Pick the video most likely to contain a clear, watchable highlight moment related to the topic.""",
+    output_schema=SelectedVideo,
     output_key="selected_video",
 )
 
