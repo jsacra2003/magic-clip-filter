@@ -2,16 +2,16 @@ import os
 
 from googleapiclient.discovery import build
 
-YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 
 def youtube_search(query: str) -> list:
-    if not YOUTUBE_API_KEY:
+    api_key = os.environ.get("YOUTUBE_API_KEY")
+    if not api_key:
         raise RuntimeError("YOUTUBE_API_KEY not set.")
     youtube = build(
-        YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=YOUTUBE_API_KEY
+        YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=api_key
     )
     response = (
         youtube.search()

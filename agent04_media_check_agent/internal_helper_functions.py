@@ -10,8 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Note: You only need Google Search credentials for this version
-GOOGLE_SEARCH_API_KEY = os.environ.get("GOOGLE_SEARCH_API_KEY")
-GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID")
+# Read at call time (not import time) so Agent Engine env vars are picked up
+GOOGLE_SEARCH_API_KEY = None
+GOOGLE_CSE_ID = None
 
 # --- Common Model Name (Update if needed) ---
 MODEL_NAME = "gemini-2.5-pro"
@@ -75,12 +76,14 @@ def _make_google_search_request(
     query: str, num_results: int = 5
 ) -> Tuple[Optional[List[Dict]], Optional[str]]:
     """Makes a request to the Google Custom Search API."""
-    if not GOOGLE_SEARCH_API_KEY or not GOOGLE_CSE_ID:
+    search_api_key = os.environ.get("GOOGLE_SEARCH_API_KEY")
+    cse_id = os.environ.get("GOOGLE_CSE_ID")
+    if not search_api_key or not cse_id:
         return None, "Google Search API Key or CSE ID is not configured."
     try:
         params = {
-            "key": GOOGLE_SEARCH_API_KEY,
-            "cx": GOOGLE_CSE_ID,
+            "key": search_api_key,
+            "cx": cse_id,
             "q": query,
             "num": num_results,
         }

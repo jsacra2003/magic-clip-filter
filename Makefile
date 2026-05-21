@@ -42,7 +42,8 @@ deploy:
 		--entrypoint-object=agent_engine \
 		--requirements-file=google_trends_agent/app_utils/.requirements.txt \
 		$(if $(AGENT_IDENTITY),--agent-identity) \
-		$(if $(filter command line,$(origin SECRETS)),--set-secrets="$(SECRETS)")
+		$(if $(filter command line,$(origin SECRETS)),--set-secrets="$(SECRETS)") \
+		$(if $(filter command line,$(origin ENV_VARS)),--set-env-vars="$(ENV_VARS)")
 
 # Alias for 'make deploy' for backward compatibility
 backend: deploy
