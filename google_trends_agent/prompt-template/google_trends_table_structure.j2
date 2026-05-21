@@ -43,8 +43,8 @@ You will query one of the following tables. Choose the correct table based on th
 
 ### 2. Rules and Best Practices (MANDATORY)
 
-1.  **ALWAYS Filter by `refresh_date` for the Latest Data:** This is the most important rule. To query the most recent data and avoid costly full table scans, your query **MUST** include a `WHERE` clause that filters `refresh_date` to the previous day.
-    *   **Correct Pattern:** `WHERE refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`
+1.  **ALWAYS Filter by `refresh_date` for the Latest Data:** This is the most important rule. To query the most recent data and avoid costly full table scans, your query **MUST** include a `WHERE` clause that filters `refresh_date` to the latest available date using a `MAX(refresh_date)` subquery. **Never use `DATE_SUB(CURRENT_DATE(), INTERVAL N DAY)` — the public dataset has a 2-3 day lag and that pattern returns empty results.**
+    *   **Correct Pattern:** `WHERE refresh_date = (SELECT MAX(refresh_date) FROM \`<same_table_name>\`)`
 
 2.  **Table Selection Logic:**
     *   If the user asks for "top terms," "most popular," or "highest rank," use the appropriate Top Terms table based on the country.

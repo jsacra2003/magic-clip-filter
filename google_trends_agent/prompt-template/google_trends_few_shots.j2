@@ -12,7 +12,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.top_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.top_terms`)
     GROUP BY
       term
     ORDER BY
@@ -34,9 +34,9 @@ To guide your response, you will be provided with a set of few-shot examples in 
       week = (
         SELECT DATE_SUB(MAX(week), INTERVAL 52 WEEK)
         FROM `bigquery-public-data.google_trends.international_top_rising_terms`
-        WHERE refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+        WHERE refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_rising_terms`)
       )
-      AND refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      AND refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_rising_terms`)
       AND country_name = 'Canada'
     GROUP BY
       term, week
@@ -54,7 +54,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.international_top_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_terms`)
       AND country_name = 'Germany'
       AND rank = 1
     ORDER BY
@@ -72,7 +72,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.international_top_rising_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_rising_terms`)
       AND country_name = 'Australia'
       AND percent_gain > 1000
     ORDER BY
@@ -89,7 +89,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.international_top_rising_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_rising_terms`)
       AND country_name = 'France'
       AND region_name = 'Ile-de-France'
     ORDER BY
@@ -107,7 +107,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.international_top_rising_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_rising_terms`)
       AND country_name = 'Brazil'
       AND week BETWEEN '2023-01-01' AND '2023-03-31'
     ORDER BY
@@ -126,7 +126,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.international_top_rising_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_rising_terms`)
       AND country_name = 'Japan'
       AND term IN (
         SELECT
@@ -134,7 +134,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
         FROM
           `bigquery-public-data.google_trends.international_top_terms`
         WHERE
-          refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+          refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.international_top_terms`)
           AND country_name = 'Japan'
           AND rank <= 5
       )
@@ -152,7 +152,7 @@ To guide your response, you will be provided with a set of few-shot examples in 
     FROM
       `bigquery-public-data.google_trends.top_rising_terms`
     WHERE
-      refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.top_rising_terms`)
       AND percent_gain > 5000
     ORDER BY
       percent_gain DESC
