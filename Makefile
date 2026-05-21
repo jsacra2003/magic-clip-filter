@@ -28,7 +28,11 @@ playground:
 # ==============================================================================
 
 # Deploy the agent remotely
-# Usage: make deploy [AGENT_IDENTITY=true] [SECRETS="KEY=SECRET_ID,..."] - Set AGENT_IDENTITY=true to enable per-agent IAM identity (Preview)
+# Usage: make deploy [AGENT_IDENTITY=true] [SECRETS="KEY=SECRET_ID,..."]
+# Pipeline API keys (YOUTUBE_API_KEY, GOOGLE_SEARCH_API_KEY, GOOGLE_CSE_ID) are
+# read automatically from .env in the project root.
+_DOTENV_PIPELINE_VARS := $(shell grep -E "^(YOUTUBE_API_KEY|GOOGLE_SEARCH_API_KEY|GOOGLE_CSE_ID)=" .env 2>/dev/null | tr '\n' ',' | sed 's/,$$//')
+
 deploy:
 	# Export dependencies to requirements file using uv export.
 	(uv export --no-hashes --no-header --no-dev --no-emit-project --no-annotate > google_trends_agent/app_utils/.requirements.txt 2>/dev/null || \
@@ -43,7 +47,7 @@ deploy:
 		--requirements-file=google_trends_agent/app_utils/.requirements.txt \
 		$(if $(AGENT_IDENTITY),--agent-identity) \
 		$(if $(filter command line,$(origin SECRETS)),--set-secrets="$(SECRETS)") \
-		$(if $(filter command line,$(origin ENV_VARS)),--set-env-vars="$(ENV_VARS)")
+		$(if $(_DOTENV_PIPELINE_VARS),--set-env-vars="$(_DOTENV_PIPELINE_VARS)")
 
 # Alias for 'make deploy' for backward compatibility
 backend: deploy
