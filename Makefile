@@ -34,7 +34,10 @@ deploy:
 	(uv export --no-hashes --no-header --no-dev --no-emit-project --no-annotate > google_trends_agent/app_utils/.requirements.txt 2>/dev/null || \
 	uv export --no-hashes --no-header --no-dev --no-emit-project > google_trends_agent/app_utils/.requirements.txt) && \
 	uv run -m google_trends_agent.app_utils.deploy \
-		--source-packages=./magic_clip_pipeline,./google_trends_agent,./agent04_media_check_agent,./agent05_youtube_highlights_agent \
+		--source-packages=./magic_clip_pipeline \
+		--source-packages=./google_trends_agent \
+		--source-packages=./agent04_media_check_agent \
+		--source-packages=./agent05_youtube_highlights_agent \
 		--entrypoint-module=magic_clip_pipeline.agent_engine_app \
 		--entrypoint-object=agent_engine \
 		--requirements-file=google_trends_agent/app_utils/.requirements.txt \
