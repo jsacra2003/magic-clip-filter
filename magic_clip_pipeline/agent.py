@@ -70,7 +70,7 @@ Rules:
   → Example: user says "tech news" → call get_trending_news(topic="technology AI")
 - If the user asks about global trends with no specific category (e.g. "what's trending?", "top trends today"):
   → Use the `execute_bigquery_sql` tool with this query:
-    SELECT term, rank FROM `bigquery-public-data.google_trends.top_terms` WHERE refresh_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY) ORDER BY rank ASC LIMIT 20
+    SELECT term, rank FROM `bigquery-public-data.google_trends.top_terms` WHERE refresh_date = (SELECT MAX(refresh_date) FROM `bigquery-public-data.google_trends.top_terms`) ORDER BY rank ASC LIMIT 20
 
 Return all results as-is. Do NOT summarize or pick yet — just output the raw list.""",
     tools=[get_trending_news, execute_bigquery_sql],
